@@ -7,7 +7,7 @@ import {
 } from '@google/genai';
 import { AudioRecorder, AudioPlayer } from './audio';
 
-export type SessionState = 'disconnected' | 'connecting' | 'listening' | 'speaking';
+export type SessionState = 'disconnected' | 'connecting' | 'listening' | 'speaking' | 'error';
 
 const openWebsiteTool: FunctionDeclaration = {
   name: 'openWebsite',
@@ -25,15 +25,15 @@ const openWebsiteTool: FunctionDeclaration = {
 };
 
 export class LiveSession {
-  private ai: GoogleGenAI;
+  private ai: GoogleGenAI | null = null;
   private session: any = null;
   private recorder: AudioRecorder | null = null;
   private player: AudioPlayer | null = null;
   private state: SessionState = 'disconnected';
   private onStateChange: (state: SessionState) => void;
+  public errorMessage: string = '';
 
   constructor(onStateChange: (state: SessionState) => void) {
-    this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     this.onStateChange = onStateChange;
   }
 
@@ -43,9 +43,25 @@ export class LiveSession {
   }
 
   async connect() {
-    if (this.state !== 'disconnected') return;
+    if (this.state !== 'disconnected' && this.state !== 'error') return;
 
     this.setState('connecting');
+    this.errorMessage = '';
+
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey || apiKey === 'undefined' || apiKey === 'null') {
+        throw new Error("GEMINI_API_KEY is missing. Please add it in your Vercel Environment Variables.");
+      }
+      if (!this.ai) {
+        this.ai = new GoogleGenAI({ apiKey });
+      }
+    } catch (error: any) {
+      console.error('Initialization error:', error);
+      this.errorMessage = error.message;
+      this.setState('error');
+      return;
+    }
 
     this.player = new AudioPlayer((playing) => {
       if (this.state === 'disconnected') return;
@@ -66,7 +82,7 @@ export class LiveSession {
     });
 
     try {
-      const sessionPromise = this.ai.live.connect({
+      const sessionPromise = this.ai!.live.connect({
         model: 'gemini-3.1-flash-live-preview',
         config: {
           responseModalities: [Modality.AUDIO],
@@ -138,8 +154,10 @@ Keep your responses concise and conversational.`,
       });
 
       this.session = await sessionPromise;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to connect:', error);
+      this.errorMessage = error.message || 'Failed to connect to AI';
+      this.setState('error');
       this.disconnect();
     }
   }

@@ -36,6 +36,7 @@ export default function App() {
       case 'connecting': return 'Waking up...';
       case 'listening': return 'Listening...';
       case 'speaking': return 'Zoya is speaking...';
+      case 'error': return 'Connection Error';
     }
   };
 
@@ -45,6 +46,7 @@ export default function App() {
       case 'connecting': return 'bg-purple-600 text-white';
       case 'listening': return 'bg-blue-500 text-white';
       case 'speaking': return 'bg-pink-500 text-white';
+      case 'error': return 'bg-red-600 text-white';
     }
   };
 
@@ -71,7 +73,7 @@ export default function App() {
       <div className="z-10 flex flex-col items-center gap-12">
         <div className="text-center space-y-4">
           <h1 className="text-5xl font-bold tracking-tighter text-white">Zoya</h1>
-          <p className="text-gray-400 font-medium tracking-wide uppercase text-sm">
+          <p className={`font-medium tracking-wide uppercase text-sm ${sessionState === 'error' ? 'text-red-400' : 'text-gray-400'}`}>
             {getStatusText()}
           </p>
         </div>
@@ -100,14 +102,15 @@ export default function App() {
           <button
             onClick={toggleConnection}
             className={`relative w-32 h-32 rounded-full flex items-center justify-center transition-all duration-500 shadow-2xl ${getStatusColor()} ${
-              sessionState !== 'disconnected' ? 'shadow-[0_0_40px_rgba(0,0,0,0.5)]' : ''
+              sessionState !== 'disconnected' && sessionState !== 'error' ? 'shadow-[0_0_40px_rgba(0,0,0,0.5)]' : ''
             }`}
             style={{
               boxShadow: sessionState === 'speaking' ? '0 0 60px rgba(236, 72, 153, 0.6)' : 
-                         sessionState === 'listening' ? '0 0 40px rgba(59, 130, 246, 0.6)' : 'none'
+                         sessionState === 'listening' ? '0 0 40px rgba(59, 130, 246, 0.6)' : 
+                         sessionState === 'error' ? '0 0 40px rgba(220, 38, 38, 0.6)' : 'none'
             }}
           >
-            {sessionState === 'disconnected' && <Power className="w-12 h-12" />}
+            {(sessionState === 'disconnected' || sessionState === 'error') && <Power className="w-12 h-12" />}
             {sessionState === 'connecting' && <Loader2 className="w-12 h-12 animate-spin" />}
             {sessionState === 'listening' && <Mic className="w-12 h-12" />}
             {sessionState === 'speaking' && (
@@ -129,6 +132,12 @@ export default function App() {
             )}
           </button>
         </div>
+
+        {sessionState === 'error' && (
+          <div className="absolute bottom-10 max-w-md text-center text-red-400 bg-red-950/50 p-4 rounded-lg border border-red-900/50 backdrop-blur-sm">
+            {sessionRef.current?.errorMessage || "An unexpected error occurred."}
+          </div>
+        )}
       </div>
     </div>
   );
